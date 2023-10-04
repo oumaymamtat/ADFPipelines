@@ -1,0 +1,55 @@
+{
+	"name": "SplitFilesintoSubFiles",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "devconvamistorage1",
+						"type": "DatasetReference"
+					},
+					"name": "FileToSplit"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "devconvamistorage1",
+						"type": "DatasetReference"
+					},
+					"name": "GeneratedSubFiles"
+				}
+			],
+			"transformations": [],
+			"scriptLines": [
+				"source(output(",
+				"          cnrps as string,",
+				"          codis as string,",
+				"          Amount as string,",
+				"          min_yearmon as string,",
+				"          max_yearmon as string,",
+				"          end_date as string,",
+				"          nb_mois_reel as string",
+				"     ),",
+				"     allowSchemaDrift: false,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false,",
+				"     partitionBy('roundRobin', 2)) ~> FileToSplit",
+				"FileToSplit sink(allowSchemaDrift: false,",
+				"     validateSchema: false,",
+				"     input(",
+				"          cnrps as string,",
+				"          codis as string,",
+				"          Amount as string,",
+				"          min_yearmon as string,",
+				"          max_yearmon as string,",
+				"          end_date as string,",
+				"          nb_mois_reel as string",
+				"     ),",
+				"     filePattern:'subfile/SubFile[n]',",
+				"     partitionBy('roundRobin', 3)) ~> GeneratedSubFiles"
+			]
+		}
+	}
+}
