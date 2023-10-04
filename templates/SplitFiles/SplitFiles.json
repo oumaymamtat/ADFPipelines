@@ -1,0 +1,765 @@
+{
+	"$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"factoryName": {
+			"type": "string",
+			"metadata": "Data Factory name"
+		},
+		"devconvamiblobstorage": {
+			"type": "string"
+		},
+		"devConvamiDb": {
+			"type": "string"
+		}
+	},
+	"variables": {
+		"factoryId": "[concat('Microsoft.DataFactory/factories/', parameters('factoryName'))]"
+	},
+	"resources": [
+		{
+			"name": "[concat(parameters('factoryName'), '/SplitFiles')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "SplitFilesintoSubFiles",
+						"type": "ExecuteDataFlow",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataflow": {
+								"referenceName": "SplitFilesintoSubFiles",
+								"type": "DataFlowReference"
+							},
+							"compute": {
+								"coreCount": 8,
+								"computeType": "General"
+							},
+							"traceLevel": "Fine"
+						}
+					},
+					{
+						"name": "ForEachSubFile",
+						"type": "ForEach",
+						"dependsOn": [
+							{
+								"activity": "GetSubFiles",
+								"dependencyConditions": [
+									"Completed"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"items": {
+								"value": "@activity('GetSubFiles').output.childItems",
+								"type": "Expression"
+							},
+							"isSequential": false,
+							"activities": [
+								{
+									"name": "InsertDataToCession",
+									"type": "ExecutePipeline",
+									"dependsOn": [],
+									"userProperties": [],
+									"typeProperties": {
+										"pipeline": {
+											"referenceName": "InsertDataToCession",
+											"type": "PipelineReference"
+										},
+										"waitOnCompletion": true
+									}
+								}
+							]
+						}
+					},
+					{
+						"name": "GetSubFiles",
+						"type": "GetMetadata",
+						"dependsOn": [
+							{
+								"activity": "SplitFilesintoSubFiles",
+								"dependencyConditions": [
+									"Completed"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataset": {
+								"referenceName": "devconvamistorage",
+								"type": "DatasetReference"
+							},
+							"fieldList": [
+								"childItems"
+							],
+							"storeSettings": {
+								"type": "AzureBlobStorageReadSettings",
+								"enablePartitionDiscovery": false
+							},
+							"formatSettings": {
+								"type": "DelimitedTextReadSettings"
+							}
+						}
+					},
+					{
+						"name": "ExtratCessionTypefromFilePath",
+						"type": "SetVariable",
+						"dependsOn": [
+							{
+								"activity": "GetSubFiles",
+								"dependencyConditions": [
+									"Completed"
+								]
+							}
+						],
+						"policy": {
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"variableName": "filePath",
+							"value": {
+								"value": "@activity('GetSubFiles').output.childItems[0].name",
+								"type": "Expression"
+							}
+						}
+					}
+				],
+				"variables": {
+					"filePath": {
+						"type": "String"
+					}
+				},
+				"annotations": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/dataflows/SplitFilesintoSubFiles')]",
+				"[concat(variables('factoryId'), '/datasets/devconvamistorage')]",
+				"[concat(variables('factoryId'), '/pipelines/InsertDataToCession')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/SplitFilesintoSubFiles')]",
+			"type": "Microsoft.DataFactory/factories/dataflows",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [
+						{
+							"dataset": {
+								"referenceName": "devconvamistorage",
+								"type": "DatasetReference"
+							},
+							"name": "FileToSplit"
+						}
+					],
+					"sinks": [
+						{
+							"dataset": {
+								"referenceName": "devconvamistorage",
+								"type": "DatasetReference"
+							},
+							"name": "GeneratedSubFiles"
+						}
+					],
+					"transformations": [],
+					"scriptLines": [
+						"source(output(",
+						"          cnrps as string,",
+						"          codis as string,",
+						"          Amount as string,",
+						"          min_yearmon as string,",
+						"          max_yearmon as string,",
+						"          end_date as string,",
+						"          nb_mois_reel as string",
+						"     ),",
+						"     allowSchemaDrift: false,",
+						"     validateSchema: false,",
+						"     ignoreNoFilesFound: false,",
+						"     partitionBy('roundRobin', 2)) ~> FileToSplit",
+						"FileToSplit sink(allowSchemaDrift: false,",
+						"     validateSchema: false,",
+						"     input(",
+						"          cnrps as string,",
+						"          codis as string,",
+						"          Amount as string,",
+						"          min_yearmon as string,",
+						"          max_yearmon as string,",
+						"          end_date as string,",
+						"          nb_mois_reel as string",
+						"     ),",
+						"     filePattern:'subfile/SubFile[n]',",
+						"     partitionBy('roundRobin', 3)) ~> GeneratedSubFiles"
+					]
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/devconvamistorage')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/devconvamistorage')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "[parameters('devconvamiblobstorage')]",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "DelimitedText",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobStorageLocation",
+						"folderPath": {
+							"value": "input",
+							"type": "Expression"
+						},
+						"container": "adf-test-files"
+					},
+					"columnDelimiter": ";",
+					"escapeChar": "\\",
+					"firstRowAsHeader": true,
+					"quoteChar": "\""
+				},
+				"schema": [
+					{
+						"name": "cnrps",
+						"type": "String"
+					},
+					{
+						"name": "codis",
+						"type": "String"
+					},
+					{
+						"name": "Amount",
+						"type": "String"
+					},
+					{
+						"name": "min_yearmon",
+						"type": "String"
+					},
+					{
+						"name": "max_yearmon",
+						"type": "String"
+					},
+					{
+						"name": "end_date",
+						"type": "String"
+					},
+					{
+						"name": "nb_mois_reel",
+						"type": "String"
+					}
+				]
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/InsertDataToCession')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Data flow1",
+						"type": "ExecuteDataFlow",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataflow": {
+								"referenceName": "dataflow1",
+								"type": "DataFlowReference"
+							},
+							"compute": {
+								"coreCount": 8,
+								"computeType": "General"
+							},
+							"traceLevel": "Fine"
+						}
+					}
+				],
+				"variables": {
+					"filePath": {
+						"type": "String"
+					}
+				},
+				"annotations": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/dataflows/dataflow1')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/dataflow1')]",
+			"type": "Microsoft.DataFactory/factories/dataflows",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [
+						{
+							"dataset": {
+								"referenceName": "devconvamistorage",
+								"type": "DatasetReference"
+							},
+							"name": "devconvamistorageSource"
+						},
+						{
+							"dataset": {
+								"referenceName": "convamiMembre",
+								"type": "DatasetReference"
+							},
+							"name": "convamimembreSource",
+							"description": "Import data from "
+						},
+						{
+							"dataset": {
+								"referenceName": "convami_cession",
+								"type": "DatasetReference"
+							},
+							"name": "convamicessionSource"
+						}
+					],
+					"sinks": [
+						{
+							"dataset": {
+								"referenceName": "convami_cession",
+								"type": "DatasetReference"
+							},
+							"name": "sink1"
+						},
+						{
+							"linkedService": {
+								"referenceName": "[parameters('devconvamiblobstorage')]",
+								"type": "LinkedServiceReference"
+							},
+							"name": "outputToErrorFile"
+						}
+					],
+					"transformations": [
+						{
+							"name": "SelectColumnstoinserttocession"
+						},
+						{
+							"name": "GetRowWhereCNRPSFileEqualsCNRPSMembre"
+						},
+						{
+							"name": "InsertDataSwitchCondition"
+						},
+						{
+							"name": "AddColumnsFromCession"
+						},
+						{
+							"name": "UpdateColumnTypes",
+							"description": "updating the columns  min_yearmon, max_yearmon, end_date,minyear'"
+						}
+					],
+					"scriptLines": [
+						"source(output(",
+						"          cnrps as string,",
+						"          codis as integer,",
+						"          Amount as float '##0.##',",
+						"          min_yearmon as string,",
+						"          max_yearmon as string,",
+						"          end_date as string,",
+						"          nb_mois_reel as integer",
+						"     ),",
+						"     allowSchemaDrift: false,",
+						"     validateSchema: false,",
+						"     ignoreNoFilesFound: false,",
+						"     wildcardPaths:['input']) ~> devconvamistorageSource",
+						"source(output(",
+						"          Id as integer,",
+						"          CNRPS as string,",
+						"          CIN as string,",
+						"          Nom as string,",
+						"          Prenom as string,",
+						"          Telephone as string,",
+						"          DateDeNaissance as timestamp,",
+						"          Affectation as string,",
+						"          Adherent as boolean,",
+						"          Email as string,",
+						"          AmicaleId as integer,",
+						"          Fonction as string,",
+						"          StatusDesactivation as boolean,",
+						"          DateDeRecrutement as timestamp,",
+						"          CategorieEmployee as string,",
+						"          Actif as string,",
+						"          BureauRegional as string,",
+						"          BlackListed as boolean,",
+						"          IdentificationType as integer,",
+						"          Identifier as string,",
+						"          Retired as boolean,",
+						"          NbWhitelisted as integer,",
+						"          Whitelisted as boolean",
+						"     ),",
+						"     allowSchemaDrift: false,",
+						"     validateSchema: false,",
+						"     limit: 100,",
+						"     isolationLevel: 'READ_UNCOMMITTED',",
+						"     format: 'table') ~> convamimembreSource",
+						"source(output(",
+						"          Id as integer,",
+						"          MontantCession as double,",
+						"          DateDebutCession as timestamp,",
+						"          DateFinCession as timestamp,",
+						"          DateCession as timestamp,",
+						"          AdherentId as integer,",
+						"          CodeCession as integer,",
+						"          Nbre_Mois_Reel as integer,",
+						"          DateDebutCumul as timestamp,",
+						"          DateFinCumul as timestamp,",
+						"          MontantCessionCumul as double,",
+						"          Type as string,",
+						"          FichierSource as string,",
+						"          Source as string,",
+						"          DateSaisie as timestamp",
+						"     ),",
+						"     allowSchemaDrift: false,",
+						"     validateSchema: false,",
+						"     limit: 100,",
+						"     isolationLevel: 'READ_UNCOMMITTED',",
+						"     query: 'SELECT TOP (1000) [Id]\\n      ,[MontantCession]\\n      ,[DateDebutCession]\\n      ,[DateFinCession]\\n      ,[DateCession]\\n      ,[AdherentId]\\n      ,[CodeCession]\\n      ,[Nbre_Mois_Reel]\\n      ,[DateDebutCumul]\\n      ,[DateFinCumul]\\n      ,[MontantCessionCumul]\\n      ,[Type]\\n      ,[FichierSource]\\n      ,[Source]\\n      ,[DateSaisie]\\n  FROM [ConvAmi].[Cession]\\n  order by AdherentId',",
+						"     format: 'query') ~> convamicessionSource",
+						"GetRowWhereCNRPSFileEqualsCNRPSMembre select(mapColumn(",
+						"          AdhId = Id,",
+						"          codis,",
+						"          Amount,",
+						"          min_yearmon,",
+						"          max_yearmon,",
+						"          end_date,",
+						"          nb_mois_reel",
+						"     ),",
+						"     skipDuplicateMapInputs: false,",
+						"     skipDuplicateMapOutputs: false) ~> SelectColumnstoinserttocession",
+						"UpdateColumnTypes, convamimembreSource join(instr(convamimembreSource@CNRPS, devconvamistorageSource@cnrps)!=0,",
+						"     joinType:'cross',",
+						"     matchType:'exact',",
+						"     ignoreSpaces: false,",
+						"     broadcast: 'auto')~> GetRowWhereCNRPSFileEqualsCNRPSMembre",
+						"AddColumnsFromCession split(AdherentId==AdhId\r",
+						"&&codis==CodeCession\r",
+						"&&Amount==MontantCession\r",
+						"&&min_yearmon==DateDebutCession\r",
+						"&&end_date==DateFinCession\r",
+						"&&max_yearmon==DateCession\r",
+						"&&nb_mois_reel==Nbre_Mois_Reel,",
+						"     disjoint: false) ~> InsertDataSwitchCondition@(duplicatedRows, toinsert)",
+						"SelectColumnstoinserttocession, convamicessionSource lookup(AdhId == AdherentId",
+						"     && codis == CodeCession",
+						"     && Amount == MontantCession",
+						"     && min_yearmon == DateDebutCession",
+						"     && max_yearmon == DateCession",
+						"     && end_date == DateFinCession",
+						"     && nb_mois_reel == Nbre_Mois_Reel,",
+						"     multiple: true,",
+						"     broadcast: 'auto')~> AddColumnsFromCession",
+						"devconvamistorageSource derive(min_yearmon = toTimestamp(concat(substring(min_yearmon, 0, 4), '-', substring(min_yearmon, 5, 2), '-01 00:00:00.000')),",
+						"          max_yearmon = toTimestamp(concat(substring(max_yearmon, 0, 4), '-', substring(max_yearmon, 5, 2), '-01 00:00:00.000')),",
+						"          end_date = toTimestamp(concat(substring(end_date, 0, 4), '-', substring(end_date, 5, 2), '-01 00:00:00.000'))) ~> UpdateColumnTypes",
+						"InsertDataSwitchCondition@toinsert sink(allowSchemaDrift: false,",
+						"     validateSchema: false,",
+						"     input(",
+						"          Id as integer,",
+						"          MontantCession as double,",
+						"          DateDebutCession as timestamp,",
+						"          DateFinCession as timestamp,",
+						"          DateCession as timestamp,",
+						"          AdherentId as integer,",
+						"          CodeCession as integer,",
+						"          Nbre_Mois_Reel as integer,",
+						"          DateDebutCumul as timestamp,",
+						"          DateFinCumul as timestamp,",
+						"          MontantCessionCumul as double,",
+						"          Type as string,",
+						"          FichierSource as string,",
+						"          Source as string,",
+						"          DateSaisie as timestamp",
+						"     ),",
+						"     deletable:false,",
+						"     insertable:true,",
+						"     updateable:false,",
+						"     upsertable:false,",
+						"     format: 'table',",
+						"     errorHandlingOption: 'stopOnFirstError',",
+						"     mapColumn(",
+						"          Id,",
+						"          MontantCession,",
+						"          DateDebutCession,",
+						"          DateFinCession,",
+						"          DateCession,",
+						"          AdherentId,",
+						"          CodeCession,",
+						"          Nbre_Mois_Reel,",
+						"          DateDebutCumul,",
+						"          DateFinCumul,",
+						"          MontantCessionCumul,",
+						"          Type,",
+						"          FichierSource,",
+						"          Source,",
+						"          DateSaisie",
+						"     )) ~> sink1",
+						"InsertDataSwitchCondition@duplicatedRows sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     format: 'delimited',",
+						"     container: 'adf-test-files',",
+						"     folderPath: 'erroroutput',",
+						"     columnDelimiter: ';',",
+						"     escapeChar: '\\\\',",
+						"     quoteChar: '\\\"',",
+						"     columnNamesAsHeader: true,",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> outputToErrorFile"
+					]
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/devconvamistorage')]",
+				"[concat(variables('factoryId'), '/datasets/convamiMembre')]",
+				"[concat(variables('factoryId'), '/datasets/convami_cession')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/convamiMembre')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "[parameters('devConvamiDb')]",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "AzureSqlTable",
+				"schema": [
+					{
+						"name": "Id",
+						"type": "int",
+						"precision": 10
+					},
+					{
+						"name": "CNRPS",
+						"type": "nvarchar"
+					},
+					{
+						"name": "CIN",
+						"type": "nvarchar"
+					},
+					{
+						"name": "Nom",
+						"type": "nvarchar"
+					},
+					{
+						"name": "Prenom",
+						"type": "nvarchar"
+					},
+					{
+						"name": "Telephone",
+						"type": "nvarchar"
+					},
+					{
+						"name": "DateDeNaissance",
+						"type": "datetime",
+						"precision": 23,
+						"scale": 3
+					},
+					{
+						"name": "Affectation",
+						"type": "nvarchar"
+					},
+					{
+						"name": "Adherent",
+						"type": "bit"
+					},
+					{
+						"name": "Email",
+						"type": "nvarchar"
+					},
+					{
+						"name": "AmicaleId",
+						"type": "int",
+						"precision": 10
+					},
+					{
+						"name": "Fonction",
+						"type": "nvarchar"
+					},
+					{
+						"name": "StatusDesactivation",
+						"type": "bit"
+					},
+					{
+						"name": "DateDeRecrutement",
+						"type": "datetime",
+						"precision": 23,
+						"scale": 3
+					},
+					{
+						"name": "CategorieEmployee",
+						"type": "nvarchar"
+					},
+					{
+						"name": "Actif",
+						"type": "nvarchar"
+					},
+					{
+						"name": "BureauRegional",
+						"type": "nvarchar"
+					},
+					{
+						"name": "BlackListed",
+						"type": "bit"
+					},
+					{
+						"name": "IdentificationType",
+						"type": "int",
+						"precision": 10
+					},
+					{
+						"name": "Identifier",
+						"type": "nvarchar"
+					},
+					{
+						"name": "Retired",
+						"type": "bit"
+					},
+					{
+						"name": "NbWhitelisted",
+						"type": "int",
+						"precision": 10
+					},
+					{
+						"name": "Whitelisted",
+						"type": "bit"
+					}
+				],
+				"typeProperties": {
+					"schema": "ConvAmi",
+					"table": "Membre"
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/convami_cession')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "[parameters('devConvamiDb')]",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "AzureSqlTable",
+				"schema": [
+					{
+						"name": "Id",
+						"type": "int",
+						"precision": 10
+					},
+					{
+						"name": "MontantCession",
+						"type": "float",
+						"precision": 15
+					},
+					{
+						"name": "DateDebutCession",
+						"type": "datetime",
+						"precision": 23,
+						"scale": 3
+					},
+					{
+						"name": "DateFinCession",
+						"type": "datetime",
+						"precision": 23,
+						"scale": 3
+					},
+					{
+						"name": "DateCession",
+						"type": "datetime",
+						"precision": 23,
+						"scale": 3
+					},
+					{
+						"name": "AdherentId",
+						"type": "int",
+						"precision": 10
+					},
+					{
+						"name": "CodeCession",
+						"type": "int",
+						"precision": 10
+					},
+					{
+						"name": "Nbre_Mois_Reel",
+						"type": "int",
+						"precision": 10
+					},
+					{
+						"name": "DateDebutCumul",
+						"type": "datetime2",
+						"scale": 7
+					},
+					{
+						"name": "DateFinCumul",
+						"type": "datetime2",
+						"scale": 7
+					},
+					{
+						"name": "MontantCessionCumul",
+						"type": "float",
+						"precision": 15
+					},
+					{
+						"name": "Type",
+						"type": "nvarchar"
+					},
+					{
+						"name": "FichierSource",
+						"type": "nvarchar"
+					},
+					{
+						"name": "Source",
+						"type": "nvarchar"
+					},
+					{
+						"name": "DateSaisie",
+						"type": "datetime2",
+						"scale": 7
+					}
+				],
+				"typeProperties": {
+					"schema": "ConvAmi",
+					"table": "Cession"
+				}
+			},
+			"dependsOn": []
+		}
+	]
+}
