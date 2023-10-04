@@ -1,0 +1,117 @@
+{
+	"name": "convamiMembre",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "AzureSqlDatabase1",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "AzureSqlTable",
+		"schema": [
+			{
+				"name": "Id",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "CNRPS",
+				"type": "nvarchar"
+			},
+			{
+				"name": "CIN",
+				"type": "nvarchar"
+			},
+			{
+				"name": "Nom",
+				"type": "nvarchar"
+			},
+			{
+				"name": "Prenom",
+				"type": "nvarchar"
+			},
+			{
+				"name": "Telephone",
+				"type": "nvarchar"
+			},
+			{
+				"name": "DateDeNaissance",
+				"type": "datetime",
+				"precision": 23,
+				"scale": 3
+			},
+			{
+				"name": "Affectation",
+				"type": "nvarchar"
+			},
+			{
+				"name": "Adherent",
+				"type": "bit"
+			},
+			{
+				"name": "Email",
+				"type": "nvarchar"
+			},
+			{
+				"name": "AmicaleId",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "Fonction",
+				"type": "nvarchar"
+			},
+			{
+				"name": "StatusDesactivation",
+				"type": "bit"
+			},
+			{
+				"name": "DateDeRecrutement",
+				"type": "datetime",
+				"precision": 23,
+				"scale": 3
+			},
+			{
+				"name": "CategorieEmployee",
+				"type": "nvarchar"
+			},
+			{
+				"name": "Actif",
+				"type": "nvarchar"
+			},
+			{
+				"name": "BureauRegional",
+				"type": "nvarchar"
+			},
+			{
+				"name": "BlackListed",
+				"type": "bit"
+			},
+			{
+				"name": "IdentificationType",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "Identifier",
+				"type": "nvarchar"
+			},
+			{
+				"name": "Retired",
+				"type": "bit"
+			},
+			{
+				"name": "NbWhitelisted",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "Whitelisted",
+				"type": "bit"
+			}
+		],
+		"typeProperties": {
+			"schema": "ConvAmi",
+			"table": "Membre"
+		}
+	}
+}

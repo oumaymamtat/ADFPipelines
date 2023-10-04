@@ -1,0 +1,55 @@
+{
+	"name": "devconvamistorage",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "AzureBlobStorage1",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "DelimitedText",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobStorageLocation",
+				"folderPath": {
+					"value": "input",
+					"type": "Expression"
+				},
+				"container": "adf-test-files"
+			},
+			"columnDelimiter": ";",
+			"escapeChar": "\\",
+			"firstRowAsHeader": true,
+			"quoteChar": "\""
+		},
+		"schema": [
+			{
+				"name": "cnrps",
+				"type": "String"
+			},
+			{
+				"name": "codis",
+				"type": "String"
+			},
+			{
+				"name": "Amount",
+				"type": "String"
+			},
+			{
+				"name": "min_yearmon",
+				"type": "String"
+			},
+			{
+				"name": "max_yearmon",
+				"type": "String"
+			},
+			{
+				"name": "end_date",
+				"type": "String"
+			},
+			{
+				"name": "nb_mois_reel",
+				"type": "String"
+			}
+		]
+	}
+}
