@@ -1,0 +1,92 @@
+{
+	"name": "convami_cession1",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "AzureSqlDatabase1",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "AzureSqlTable",
+		"schema": [
+			{
+				"name": "Id",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "MontantCession",
+				"type": "float",
+				"precision": 15
+			},
+			{
+				"name": "DateDebutCession",
+				"type": "datetime",
+				"precision": 23,
+				"scale": 3
+			},
+			{
+				"name": "DateFinCession",
+				"type": "datetime",
+				"precision": 23,
+				"scale": 3
+			},
+			{
+				"name": "DateCession",
+				"type": "datetime",
+				"precision": 23,
+				"scale": 3
+			},
+			{
+				"name": "AdherentId",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "CodeCession",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "Nbre_Mois_Reel",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "DateDebutCumul",
+				"type": "datetime2",
+				"scale": 7
+			},
+			{
+				"name": "DateFinCumul",
+				"type": "datetime2",
+				"scale": 7
+			},
+			{
+				"name": "MontantCessionCumul",
+				"type": "float",
+				"precision": 15
+			},
+			{
+				"name": "Type",
+				"type": "nvarchar"
+			},
+			{
+				"name": "FichierSource",
+				"type": "nvarchar"
+			},
+			{
+				"name": "Source",
+				"type": "nvarchar"
+			},
+			{
+				"name": "DateSaisie",
+				"type": "datetime2",
+				"scale": 7
+			}
+		],
+		"typeProperties": {
+			"schema": "ConvAmi",
+			"table": "Cession"
+		}
+	}
+}

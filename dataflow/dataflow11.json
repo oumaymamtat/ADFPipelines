@@ -1,0 +1,223 @@
+{
+	"name": "dataflow11",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "devconvamistorage1",
+						"type": "DatasetReference"
+					},
+					"name": "devconvamistorageSource"
+				},
+				{
+					"dataset": {
+						"referenceName": "convamiMembre1",
+						"type": "DatasetReference"
+					},
+					"name": "convamimembreSource",
+					"description": "Import data from "
+				},
+				{
+					"dataset": {
+						"referenceName": "convami_cession1",
+						"type": "DatasetReference"
+					},
+					"name": "convamicessionSource"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "convami_cession1",
+						"type": "DatasetReference"
+					},
+					"name": "sink1"
+				},
+				{
+					"linkedService": {
+						"referenceName": "AzureBlobStorage1",
+						"type": "LinkedServiceReference"
+					},
+					"name": "outputToErrorFile"
+				}
+			],
+			"transformations": [
+				{
+					"name": "SelectColumnstoinserttocession"
+				},
+				{
+					"name": "GetRowWhereCNRPSFileEqualsCNRPSMembre"
+				},
+				{
+					"name": "InsertDataSwitchCondition"
+				},
+				{
+					"name": "AddColumnsFromCession"
+				},
+				{
+					"name": "UpdateColumnTypes",
+					"description": "updating the columns  min_yearmon, max_yearmon, end_date,minyear'"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          cnrps as string,",
+				"          codis as integer,",
+				"          Amount as float '##0.##',",
+				"          min_yearmon as string,",
+				"          max_yearmon as string,",
+				"          end_date as string,",
+				"          nb_mois_reel as integer",
+				"     ),",
+				"     allowSchemaDrift: false,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false,",
+				"     wildcardPaths:['input']) ~> devconvamistorageSource",
+				"source(output(",
+				"          Id as integer,",
+				"          CNRPS as string,",
+				"          CIN as string,",
+				"          Nom as string,",
+				"          Prenom as string,",
+				"          Telephone as string,",
+				"          DateDeNaissance as timestamp,",
+				"          Affectation as string,",
+				"          Adherent as boolean,",
+				"          Email as string,",
+				"          AmicaleId as integer,",
+				"          Fonction as string,",
+				"          StatusDesactivation as boolean,",
+				"          DateDeRecrutement as timestamp,",
+				"          CategorieEmployee as string,",
+				"          Actif as string,",
+				"          BureauRegional as string,",
+				"          BlackListed as boolean,",
+				"          IdentificationType as integer,",
+				"          Identifier as string,",
+				"          Retired as boolean,",
+				"          NbWhitelisted as integer,",
+				"          Whitelisted as boolean",
+				"     ),",
+				"     allowSchemaDrift: false,",
+				"     validateSchema: false,",
+				"     limit: 100,",
+				"     isolationLevel: 'READ_UNCOMMITTED',",
+				"     format: 'table') ~> convamimembreSource",
+				"source(output(",
+				"          Id as integer,",
+				"          MontantCession as double,",
+				"          DateDebutCession as timestamp,",
+				"          DateFinCession as timestamp,",
+				"          DateCession as timestamp,",
+				"          AdherentId as integer,",
+				"          CodeCession as integer,",
+				"          Nbre_Mois_Reel as integer,",
+				"          DateDebutCumul as timestamp,",
+				"          DateFinCumul as timestamp,",
+				"          MontantCessionCumul as double,",
+				"          Type as string,",
+				"          FichierSource as string,",
+				"          Source as string,",
+				"          DateSaisie as timestamp",
+				"     ),",
+				"     allowSchemaDrift: false,",
+				"     validateSchema: false,",
+				"     limit: 100,",
+				"     isolationLevel: 'READ_UNCOMMITTED',",
+				"     query: 'SELECT TOP (1000) [Id]\\n      ,[MontantCession]\\n      ,[DateDebutCession]\\n      ,[DateFinCession]\\n      ,[DateCession]\\n      ,[AdherentId]\\n      ,[CodeCession]\\n      ,[Nbre_Mois_Reel]\\n      ,[DateDebutCumul]\\n      ,[DateFinCumul]\\n      ,[MontantCessionCumul]\\n      ,[Type]\\n      ,[FichierSource]\\n      ,[Source]\\n      ,[DateSaisie]\\n  FROM [ConvAmi].[Cession]\\n  order by AdherentId',",
+				"     format: 'query') ~> convamicessionSource",
+				"GetRowWhereCNRPSFileEqualsCNRPSMembre select(mapColumn(",
+				"          AdhId = Id,",
+				"          codis,",
+				"          Amount,",
+				"          min_yearmon,",
+				"          max_yearmon,",
+				"          end_date,",
+				"          nb_mois_reel",
+				"     ),",
+				"     skipDuplicateMapInputs: false,",
+				"     skipDuplicateMapOutputs: false) ~> SelectColumnstoinserttocession",
+				"UpdateColumnTypes, convamimembreSource join(instr(convamimembreSource@CNRPS, devconvamistorageSource@cnrps)!=0,",
+				"     joinType:'cross',",
+				"     matchType:'exact',",
+				"     ignoreSpaces: false,",
+				"     broadcast: 'auto')~> GetRowWhereCNRPSFileEqualsCNRPSMembre",
+				"AddColumnsFromCession split(AdherentId==AdhId\r",
+				"&&codis==CodeCession\r",
+				"&&Amount==MontantCession\r",
+				"&&min_yearmon==DateDebutCession\r",
+				"&&end_date==DateFinCession\r",
+				"&&max_yearmon==DateCession\r",
+				"&&nb_mois_reel==Nbre_Mois_Reel,",
+				"     disjoint: false) ~> InsertDataSwitchCondition@(duplicatedRows, toinsert)",
+				"SelectColumnstoinserttocession, convamicessionSource lookup(AdhId == AdherentId",
+				"     && codis == CodeCession",
+				"     && Amount == MontantCession",
+				"     && min_yearmon == DateDebutCession",
+				"     && max_yearmon == DateCession",
+				"     && end_date == DateFinCession",
+				"     && nb_mois_reel == Nbre_Mois_Reel,",
+				"     multiple: true,",
+				"     broadcast: 'auto')~> AddColumnsFromCession",
+				"devconvamistorageSource derive(min_yearmon = toTimestamp(concat(substring(min_yearmon, 0, 4), '-', substring(min_yearmon, 5, 2), '-01 00:00:00.000')),",
+				"          max_yearmon = toTimestamp(concat(substring(max_yearmon, 0, 4), '-', substring(max_yearmon, 5, 2), '-01 00:00:00.000')),",
+				"          end_date = toTimestamp(concat(substring(end_date, 0, 4), '-', substring(end_date, 5, 2), '-01 00:00:00.000'))) ~> UpdateColumnTypes",
+				"InsertDataSwitchCondition@toinsert sink(allowSchemaDrift: false,",
+				"     validateSchema: false,",
+				"     input(",
+				"          Id as integer,",
+				"          MontantCession as double,",
+				"          DateDebutCession as timestamp,",
+				"          DateFinCession as timestamp,",
+				"          DateCession as timestamp,",
+				"          AdherentId as integer,",
+				"          CodeCession as integer,",
+				"          Nbre_Mois_Reel as integer,",
+				"          DateDebutCumul as timestamp,",
+				"          DateFinCumul as timestamp,",
+				"          MontantCessionCumul as double,",
+				"          Type as string,",
+				"          FichierSource as string,",
+				"          Source as string,",
+				"          DateSaisie as timestamp",
+				"     ),",
+				"     deletable:false,",
+				"     insertable:true,",
+				"     updateable:false,",
+				"     upsertable:false,",
+				"     format: 'table',",
+				"     errorHandlingOption: 'stopOnFirstError',",
+				"     mapColumn(",
+				"          Id,",
+				"          MontantCession,",
+				"          DateDebutCession,",
+				"          DateFinCession,",
+				"          DateCession,",
+				"          AdherentId,",
+				"          CodeCession,",
+				"          Nbre_Mois_Reel,",
+				"          DateDebutCumul,",
+				"          DateFinCumul,",
+				"          MontantCessionCumul,",
+				"          Type,",
+				"          FichierSource,",
+				"          Source,",
+				"          DateSaisie",
+				"     )) ~> sink1",
+				"InsertDataSwitchCondition@duplicatedRows sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     format: 'delimited',",
+				"     container: 'adf-test-files',",
+				"     folderPath: 'erroroutput',",
+				"     columnDelimiter: ';',",
+				"     escapeChar: '\\\\',",
+				"     quoteChar: '\\\"',",
+				"     columnNamesAsHeader: true,",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> outputToErrorFile"
+			]
+		}
+	}
+}
