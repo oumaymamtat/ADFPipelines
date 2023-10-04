@@ -1,0 +1,42 @@
+{
+  "data": {
+    "operationDate": "2017-11-01T00:00:00",
+    "validationDate": "2017-11-01T00:00:00",
+    "providerReference": null,
+    "employeeDetails": {
+      "employeeId": 0,
+      "identifier": "0092444636",
+      "fullName": "محمد ساسي",
+      "cin": null,
+      "identificationType": 0
+    },
+    "status": {
+      "key": 0,
+      "value": "Processing",
+      "displayName": "en cours de traitement"
+    },
+    "purchaseAmount": 240,
+    "productName": null,
+    "paymentType": {
+      "key": 0,
+      "value": "Differed",
+      "displayName": "Cession sur salaire"
+    },
+    "differedPaymentDetails": {
+      "amount": 240,
+      "monthlyPayment": 10,
+      "theoreticalNbMonths": 24,
+      "paymentMethod": 0
+    },
+    "cashPaymentDetails": [],
+    "advanceAmount": 0,
+    "lastContributorUserId": null,
+    "requesterUserId": null
+  },
+  "totalCountRows": null,
+  "outcome": {
+    "outcode": 0,
+    "outmsg": "Succés",
+    "outWarnings": null
+  }
+}
